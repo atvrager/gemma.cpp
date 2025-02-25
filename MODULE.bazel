@@ -19,6 +19,10 @@ git_override(
     module_name = "highway",
     commit = "2b565e87d50b151660494624af532ac0b6076c79",
     remote = "https://github.com/google/highway",
+    patches = [
+        "0001-Modifications-to-allow-compilation-on-Kelvin.patch",
+    ],
+    patch_strip = 1,
 )
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

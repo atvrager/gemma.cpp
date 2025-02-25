@@ -63,9 +63,16 @@ struct BlobIO {
   uint64_t padding;
 };
 
+#define BLOB_READER_MMAP 1
+
 class BlobReader {
  public:
-  BlobReader() { requests_.reserve(500); }
+  BlobReader() {
+#if BLOB_READER_MMAP != 1
+    requests_.reserve(500);
+#else
+#endif
+  }
   ~BlobReader() = default;
 
   // Opens `filename` and reads its header.
@@ -90,7 +97,11 @@ class BlobReader {
  private:
   BlobStorePtr blob_store_;  // holds header, not the entire file
   std::vector<BlobIO> requests_;
+#if BLOB_READER_MMAP != 1
   std::unique_ptr<File> file_;
+#else
+  uint8_t* data_ = nullptr;
+#endif
 };
 
 class BlobWriter {

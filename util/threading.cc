@@ -93,6 +93,9 @@ class Pinning {
   // If want_pin_, tries to pin each worker in `pool` to an LP in `cluster`,
   // and sets `any_error_` if any fails.
   void MaybePin(const BoundedTopology::Cluster& cluster, PoolPtr& pool) {
+#if defined(__KELVIN__)
+    return;
+#else
     if (HWY_UNLIKELY(!want_pin_)) return;
 
     const std::vector<size_t> lps = cluster.LPVector();
@@ -108,6 +111,7 @@ class Pinning {
             (void)any_error_.test_and_set();
           }
         });
+#endif
   }
 
   // Called ONCE after all MaybePin because it invalidates the error status.

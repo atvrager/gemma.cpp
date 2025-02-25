@@ -49,10 +49,12 @@ struct TensorLoader {
 BlobError ModelWeightsStorage::Load(const Path& weights, Model model_type,
                                     Type weight_type, hwy::ThreadPool& pool) {
   PROFILER_ZONE("Startup.LoadModelWeightsPtrs");
+#if !defined(__KELVIN__)
   if (!weights.Exists()) {
     HWY_ABORT("The model weights file '%s' does not exist.",
               weights.path.c_str());
   }
+#endif
   ReadFromBlobStore loader(weights);
   ForEachType fet =
       loader.HaveToc() ? ForEachType::kLoadWithToc : ForEachType::kLoadNoToc;
@@ -91,10 +93,12 @@ void ModelWeightsStorage::Allocate(const ModelConfig& config, Type weight_type,
   config_ = config;
   config_.weight = weight_type;
   CreateForType(weight_type, pool);
+#if !defined(__KELVIN__)
   if (float_weights_) float_weights_->Allocate(model_storage_, pool);
   if (bf16_weights_) bf16_weights_->Allocate(model_storage_, pool);
-  if (sfp_weights_) sfp_weights_->Allocate(model_storage_, pool);
   if (nuq_weights_) nuq_weights_->Allocate(model_storage_, pool);
+#endif
+  if (sfp_weights_) sfp_weights_->Allocate(model_storage_, pool);
 }
 
 class WeightInitializer {
@@ -115,42 +119,52 @@ class WeightInitializer {
 };
 
 void ModelWeightsStorage::RandInit(std::mt19937& gen) {
+#if !defined(__KELVIN__)
   HWY_ASSERT(float_weights_);
   WeightInitializer init(gen);
   ModelWeightsPtrs<float>::ForEachTensor({float_weights_.get()},
                                          ForEachType::kLoadNoToc, init);
+#endif
 }
 
 void ModelWeightsStorage::ZeroInit() {
+#if !defined(__KELVIN__)
   if (float_weights_) float_weights_->ZeroInit();
   if (bf16_weights_) bf16_weights_->ZeroInit();
-  if (sfp_weights_) sfp_weights_->ZeroInit();
   if (nuq_weights_) nuq_weights_->ZeroInit();
+#endif
+  if (sfp_weights_) sfp_weights_->ZeroInit();
 }
 
 void ModelWeightsStorage::GetOrApplyScales(std::vector<float>& scales) {
+#if !defined(__KELVIN__)
   if (float_weights_) float_weights_->GetOrApplyScales(scales);
   if (bf16_weights_) bf16_weights_->GetOrApplyScales(scales);
-  if (sfp_weights_) sfp_weights_->GetOrApplyScales(scales);
   if (nuq_weights_) nuq_weights_->GetOrApplyScales(scales);
+#endif
+  if (sfp_weights_) sfp_weights_->GetOrApplyScales(scales);
 }
 
 void ModelWeightsStorage::AllocAndCopyWithTranspose(hwy::ThreadPool& pool) {
+#if !defined(__KELVIN__)
   if (float_weights_)
     float_weights_->AllocAndCopyWithTranspose(pool, model_storage_);
   if (bf16_weights_)
     bf16_weights_->AllocAndCopyWithTranspose(pool, model_storage_);
-  if (sfp_weights_)
-    sfp_weights_->AllocAndCopyWithTranspose(pool, model_storage_);
   if (nuq_weights_)
     nuq_weights_->AllocAndCopyWithTranspose(pool, model_storage_);
+#endif
+  if (sfp_weights_)
+    sfp_weights_->AllocAndCopyWithTranspose(pool, model_storage_);
 }
 
 void ModelWeightsStorage::CopyWithTranspose(hwy::ThreadPool& pool) {
+#if !defined(__KELVIN__)
   if (float_weights_) float_weights_->CopyWithTranspose(pool);
   if (bf16_weights_) bf16_weights_->CopyWithTranspose(pool);
-  if (sfp_weights_) sfp_weights_->CopyWithTranspose(pool);
   if (nuq_weights_) nuq_weights_->CopyWithTranspose(pool);
+#endif
+  if (sfp_weights_) sfp_weights_->CopyWithTranspose(pool);
 }
 
 namespace {
@@ -167,6 +181,7 @@ void LogVec(const char* name, const float* data, size_t len) {
 }  // namespace
 
 void ModelWeightsStorage::LogWeightStats() {
+#if !defined(__KELVIN__)
   size_t total_weights = 0;
   // Only for float weights.
   ModelWeightsPtrs<float>::ForEachTensor(
@@ -180,24 +195,27 @@ void ModelWeightsStorage::LogWeightStats() {
         total_weights += tensor.NumElements();
       });
   printf("%-20s  %12zu\n", "Total", total_weights);
+#endif
 }
 
 void ModelWeightsStorage::CreateForType(Type weight_type,
                                         hwy::ThreadPool& pool) {
   switch (weight_type) {
+#if !defined(__KELVIN__)
     case Type::kF32:
       float_weights_ = std::make_unique<ModelWeightsPtrs<float>>(config_, pool);
       break;
     case Type::kBF16:
       bf16_weights_ = std::make_unique<ModelWeightsPtrs<BF16>>(config_, pool);
       break;
-    case Type::kSFP:
-      sfp_weights_ =
-          std::make_unique<ModelWeightsPtrs<SfpStream>>(config_, pool);
-      break;
     case Type::kNUQ:
       nuq_weights_ =
           std::make_unique<ModelWeightsPtrs<NuqStream>>(config_, pool);
+      break;
+#endif
+    case Type::kSFP:
+      sfp_weights_ =
+          std::make_unique<ModelWeightsPtrs<SfpStream>>(config_, pool);
       break;
     default:
       HWY_ABORT("Weight type %d unsupported.", static_cast<int>(weight_type));

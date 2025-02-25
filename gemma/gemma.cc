@@ -73,9 +73,11 @@ Gemma::~Gemma() {
       TWEIGHT, const ModelWeightsStorage& model,                               \
       const RuntimeConfig& runtime_config, const Image& image,                 \
       ImageTokens& image_tokens, NestedPools& pools);
+#if !defined(__KELVIN__)
 GEMMA_DECLARE(float)
 GEMMA_DECLARE(BF16)
 GEMMA_DECLARE(NuqStream)
+#endif
 GEMMA_DECLARE(SfpStream)
 
 // Adapters to select from the above overloads via CallForModelWeight.

@@ -556,12 +556,14 @@ class ModelWeightsStorage {
   ModelWeightsPtrs<T>* GetWeightsOfType() const {
     if constexpr (IsSfpStream<T>()) {
       return sfp_weights_.get();
+#if !defined(__KELVIN__)
     } else if constexpr (IsF32<T>()) {
       return float_weights_.get();
     } else if constexpr (IsBF16<T>()) {
       return bf16_weights_.get();
     } else if constexpr (IsNuqStream<T>()) {
       return nuq_weights_.get();
+#endif
     } else {
       return HWY_ABORT("Unsupported type.");
     }
@@ -571,12 +573,14 @@ class ModelWeightsStorage {
   decltype(auto) CallForModelWeightT(TArgs&&... args) {
     if (HWY_LIKELY(sfp_weights_))
       return FuncT<SfpStream>()(*sfp_weights_, std::forward<TArgs>(args)...);
+#if !defined(__KELVIN__)
     if (bf16_weights_)
       return FuncT<BF16>()(*bf16_weights_, std::forward<TArgs>(args)...);
     if (nuq_weights_)
       return FuncT<NuqStream>()(*nuq_weights_, std::forward<TArgs>(args)...);
     if (float_weights_)
       return FuncT<float>()(*float_weights_, std::forward<TArgs>(args)...);
+#endif
     return HWY_ABORT("No weights loaded.");
   }
 
@@ -584,12 +588,14 @@ class ModelWeightsStorage {
   decltype(auto) CallForModelWeight(TArgs&&... args) {
     if (HWY_LIKELY(sfp_weights_))
       return FuncT<SfpStream>()(*this, std::forward<TArgs>(args)...);
+#if !defined(__KELVIN__)
     if (bf16_weights_)
       return FuncT<BF16>()(*this, std::forward<TArgs>(args)...);
     if (nuq_weights_)
       return FuncT<NuqStream>()(*this, std::forward<TArgs>(args)...);
     if (float_weights_)
       return FuncT<float>()(*this, std::forward<TArgs>(args)...);
+#endif
     return HWY_ABORT("No weights loaded.");
   }
 
@@ -599,10 +605,12 @@ class ModelWeightsStorage {
   ModelConfig config_;
   // To eliminate type templates, we hold a pointer to one of each weight type
   // and dispatch to whichever is non-null.
+#if !defined(__KELVIN__)
   std::unique_ptr<ModelWeightsPtrs<float>> float_weights_;
   std::unique_ptr<ModelWeightsPtrs<BF16>> bf16_weights_;
-  std::unique_ptr<ModelWeightsPtrs<SfpStream>> sfp_weights_;
   std::unique_ptr<ModelWeightsPtrs<NuqStream>> nuq_weights_;
+#endif
+  std::unique_ptr<ModelWeightsPtrs<SfpStream>> sfp_weights_;
   // Storage for all the matrices and vectors.
   std::vector<MatStorage> model_storage_;
 };

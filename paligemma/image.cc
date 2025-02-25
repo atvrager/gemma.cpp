@@ -46,7 +46,7 @@ constexpr size_t kNumPatches = kImageSize / kPatchSize;  // 16
 int NearestNeighbor(int value, int from_size, int to_size) {
   float scale_factor = static_cast<float>(to_size - 1) / (from_size - 1);
   // Apply nearest neighbor rounding.
-  int nn = static_cast<int>(std::round(value * scale_factor));
+  int nn = static_cast<int>(/*std::*/round(value * scale_factor));
   // Ensure the value is within the new range.
   nn = std::clamp(nn, 0, to_size - 1);
   return nn;

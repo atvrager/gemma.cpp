@@ -214,6 +214,100 @@ class BlobStore {
 };
 #pragma pack(pop)
 
+#if BLOB_READER_MMAP == 1
+#if defined(__KELVIN__)
+#else
+#include <sys/mman.h>
+#endif
+#include <fcntl.h>
+#include <sys/stat.h>
+BlobError BlobReader::Open(const Path& filename) {
+  size_t file_size = 0;
+#if defined(__KELVIN__)
+  data_ = reinterpret_cast<uint8_t*>(0x80000000);
+  file_size = 830763008;
+#else
+  int fd = open(filename.path.c_str(), 0);
+  if (fd <= 0) {
+    return __LINE__;
+  }
+  struct stat sb;
+  if (fstat(fd, &sb) != 0) {
+    return __LINE__;
+  }
+  data_ = reinterpret_cast<uint8_t*>(mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+  file_size = sb.st_size;
+  close(fd);
+#endif
+
+  BlobStore bs;
+  memcpy(&bs, data_, sizeof(bs));
+  const size_t padded_size = bs.PaddedHeaderSize();
+  HWY_ASSERT(padded_size >= sizeof(bs));
+
+  blob_store_ = BlobStore::Allocate(padded_size);
+  if (!blob_store_) return __LINE__;
+
+  hwy::CopySameSize(&bs, blob_store_.get());
+  uint8_t* bytes = reinterpret_cast<uint8_t*>(blob_store_.get());
+  memcpy(bytes + sizeof(bs), data_ + sizeof(bs), padded_size - sizeof(bs));
+
+  return blob_store_->CheckValidity(file_size);
+}
+
+size_t BlobReader::BlobSize(hwy::uint128_t key) const {
+  uint64_t offset;
+  size_t size;
+  if (!blob_store_->FindKey(key, offset, size)) return 0;
+  return size;
+}
+
+BlobError BlobReader::Enqueue(hwy::uint128_t key, void* data, size_t size) {
+  uint64_t offset;
+  size_t actual_size;
+  if (!blob_store_->FindKey(key, offset, actual_size)) return __LINE__;
+  if (actual_size != size) {
+    fprintf(stderr,
+            "Mismatch between expected %d and actual %d KiB size of blob %s. "
+            "Please see README.md on how to update the weights.\n",
+            static_cast<int>(size >> 10), static_cast<int>(actual_size >> 10),
+            StringFromKey(key).c_str());
+    return __LINE__;
+  }
+
+  EnqueueChunkRequests(offset, actual_size, reinterpret_cast<uint8_t*>(data),
+                       requests_);
+  return 0;
+}
+
+BlobError BlobReader::ReadAll(hwy::ThreadPool& pool) {
+  const auto& requests = requests_;
+  const auto& data = data_;
+  pool.Run(0, requests.size(),
+           [&data, &requests](uint64_t i, size_t /*thread*/) {
+             memcpy(requests[i].data, data + requests[i].offset, requests[i].size);
+           });
+  return 0;
+}
+
+BlobError BlobReader::ReadOne(hwy::uint128_t key, void* data,
+                              size_t size) const {
+  uint64_t offset;
+  size_t actual_size;
+  if (!blob_store_->FindKey(key, offset, actual_size)) return __LINE__;
+  if (actual_size != size) {
+    fprintf(stderr,
+            "Mismatch between expected %d and actual %d KiB size of blob %s. "
+            "Please see README.md on how to update the weights.\n",
+            static_cast<int>(size >> 10), static_cast<int>(actual_size >> 10),
+            StringFromKey(key).c_str());
+    return __LINE__;
+  }
+  memcpy(data, data_ + offset, actual_size);
+  return 0;
+}
+
+#else
 BlobError BlobReader::Open(const Path& filename) {
   file_ = OpenFileOrNull(filename, "r");
   if (!file_) return __LINE__;
@@ -306,6 +400,7 @@ BlobError BlobReader::ReadOne(hwy::uint128_t key, void* data,
   }
   return 0;
 }
+#endif
 
 hwy::Span<const hwy::uint128_t> BlobReader::Keys() const {
   return blob_store_->Keys();

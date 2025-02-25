@@ -58,15 +58,22 @@ class FilePosix : public File {
   }
 
   uint64_t FileSize() const override {
+#if defined(__KELVIN__)
+return 0;
+#else
     static_assert(sizeof(off_t) == 8, "64-bit off_t required");
     const off_t size = lseek(fd_, 0, SEEK_END);
     if (size < 0) {
       return 0;
     }
     return static_cast<uint64_t>(size);
+    #endif
   }
 
   bool Read(uint64_t offset, uint64_t size, void* to) const override {
+#if defined(__KELVIN__)
+    return false;
+#else
     uint8_t* bytes = reinterpret_cast<uint8_t*>(to);
     uint64_t pos = 0;
     for (;;) {
@@ -78,9 +85,13 @@ class FilePosix : public File {
       if (pos == size) break;
     }
     return pos == size;  // success if managed to read desired size
+#endif
   }
 
   bool Write(const void* from, uint64_t size, uint64_t offset) override {
+#if defined(__KELVIN__)
+    return false;
+#else
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>(from);
     uint64_t pos = 0;
     for (;;) {
@@ -92,6 +103,7 @@ class FilePosix : public File {
       if (pos == size) break;
     }
     return pos == size;  // success if managed to write desired size
+#endif
   }
 };  // FilePosix
 

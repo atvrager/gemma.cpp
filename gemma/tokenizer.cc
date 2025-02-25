@@ -27,7 +27,9 @@
 #include "hwy/base.h"              // HWY_ASSERT
 #include "hwy/profiler.h"
 // copybara:import_next_line:sentencepiece
+#if !defined(__KELVIN__)
 #include "src/sentencepiece_processor.h"
+#endif
 
 namespace gcpp {
 
@@ -39,36 +41,51 @@ class GemmaTokenizer::Impl {
   Impl() = default;
   explicit Impl(const Path& tokenizer_path) {
     PROFILER_ZONE("Startup.tokenizer");
+#if !defined(__KELVIN__)
     spp_ = std::make_unique<sentencepiece::SentencePieceProcessor>();
     if (!spp_->Load(tokenizer_path.path).ok()) {
-      HWY_ABORT("Failed to load the tokenizer file.");
+      // HWY_ABORT("Failed to load the tokenizer file.");
     }
+#endif
   }
 
   bool Encode(const std::string& input,
               std::vector<std::string>* pieces) const {
+                return false;
+#if !defined(__KELVIN__)
     return spp_ && spp_->Encode(input, pieces).ok();
+#endif
   }
 
   bool Encode(const std::string& input, std::vector<int>* ids) const {
     if constexpr (kShowTokenization) {
-      bool is_ok = spp_ && spp_->Encode(input, ids).ok();
+      bool is_ok = /*spp_ && spp_->Encode(input, ids).ok()*/false;
       for (int i = 0; i < static_cast<int>(ids->size()); i++) {
         fprintf(stderr, "%3d: %d\n", i, (*ids)[i]);
       }
       return is_ok;
     } else {
+#if defined(__KELVIN__)
+      return false;
+#else
       return spp_ && spp_->Encode(input, ids).ok();
+#endif
     }
   }
 
   // Given a sequence of ids, decodes it into a detokenized output.
   bool Decode(const std::vector<int>& ids, std::string* detokenized) const {
+#if defined(__KELVIN__)
+    return false;
+#else
     return spp_ && spp_->Decode(ids, detokenized).ok();
+#endif
   }
 
  private:
+#if !defined(__KELVIN__)
   std::unique_ptr<sentencepiece::SentencePieceProcessor> spp_;
+#endif
 };
 
 GemmaTokenizer::GemmaTokenizer(const Path& tokenizer_path) {

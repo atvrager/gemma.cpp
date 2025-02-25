@@ -108,6 +108,9 @@ class Allocator {
 #elif HWY_OS_WIN
     const auto call_free = [](void* ptr, void*) { _aligned_free(ptr); };
     T* p = static_cast<T*>(_aligned_malloc(bytes, Alignment()));
+#elif defined(__KELVIN__)
+    const auto call_free = [](void* ptr, void*) { std::free(ptr); };
+    T* p = static_cast<T*>(aligned_alloc(Alignment(), bytes));
 #else
     const auto call_free = [](void* ptr, void*) { std::free(ptr); };
     T* p = static_cast<T*>(std::aligned_alloc(Alignment(), bytes));

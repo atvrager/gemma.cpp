@@ -218,6 +218,7 @@ void Run(Args& args) {
   const Model model_type = args.ModelType();
   const Type weight_type = args.WeightType();
   switch (weight_type) {
+#if !defined(__KELVIN__)
     case Type::kF32:
       HWY_EXPORT_AND_DYNAMIC_DISPATCH_T(CompressWeights<float>)
       (args.weights, args.compressed_weights, model_type, pool);
@@ -226,12 +227,13 @@ void Run(Args& args) {
       HWY_EXPORT_AND_DYNAMIC_DISPATCH_T(CompressWeights<BF16>)
       (args.weights, args.compressed_weights, model_type, pool);
       break;
-    case Type::kSFP:
-      HWY_EXPORT_AND_DYNAMIC_DISPATCH_T(CompressWeights<SfpStream>)
-      (args.weights, args.compressed_weights, model_type, pool);
-      break;
     case Type::kNUQ:
       HWY_EXPORT_AND_DYNAMIC_DISPATCH_T(CompressWeights<NuqStream>)
+      (args.weights, args.compressed_weights, model_type, pool);
+      break;
+#endif
+    case Type::kSFP:
+      HWY_EXPORT_AND_DYNAMIC_DISPATCH_T(CompressWeights<SfpStream>)
       (args.weights, args.compressed_weights, model_type, pool);
       break;
     default:

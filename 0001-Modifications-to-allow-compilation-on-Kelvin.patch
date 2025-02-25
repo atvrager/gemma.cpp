@@ -1,0 +1,162 @@
+From c085aa2c94ceaa78c2aa702598b454548227bd5f Mon Sep 17 00:00:00 2001
+From: Alex Van Damme <atv@google.com>
+Date: Mon, 24 Feb 2025 15:21:01 -0800
+Subject: [PATCH] Modifications to allow compilation on Kelvin
+
+- No std::thread in thread pool
+- No atomics in abort
+- No atomics in aligned_allocator
+---
+ hwy/abort.cc                          | 10 +++++++
+ hwy/aligned_allocator.cc              | 10 +++++++
+ hwy/contrib/thread_pool/thread_pool.h | 38 ++++++++++++++++++++++++++-
+ 3 files changed, 57 insertions(+), 1 deletion(-)
+
+diff --git a/hwy/abort.cc b/hwy/abort.cc
+index a67819bb..e8fe4f87 100644
+--- a/hwy/abort.cc
++++ b/hwy/abort.cc
+@@ -22,6 +22,7 @@ namespace hwy {
+ 
+ namespace {
+ 
++#if !defined(__KELVIN__)
+ std::atomic<WarnFunc>& AtomicWarnFunc() {
+   static std::atomic<WarnFunc> func;
+   return func;
+@@ -36,6 +37,7 @@ std::string GetBaseName(std::string const& file_name) {
+   auto last_slash = file_name.find_last_of("/\\");
+   return file_name.substr(last_slash + 1);
+ }
++#endif
+ 
+ }  // namespace
+ 
+@@ -43,6 +45,7 @@ std::string GetBaseName(std::string const& file_name) {
+ // is required to safely implement `SetWarnFunc`. As a workaround, we store a
+ // copy here, update it when called, and return a reference to the copy. This
+ // has the added benefit of protecting the actual pointer from modification.
++#if !defined(__KELVIN__)
+ HWY_DLLEXPORT WarnFunc& GetWarnFunc() {
+   static WarnFunc func;
+   func = AtomicWarnFunc().load();
+@@ -62,9 +65,11 @@ HWY_DLLEXPORT WarnFunc SetWarnFunc(WarnFunc func) {
+ HWY_DLLEXPORT AbortFunc SetAbortFunc(AbortFunc func) {
+   return AtomicAbortFunc().exchange(func);
+ }
++#endif
+ 
+ HWY_DLLEXPORT void HWY_FORMAT(3, 4)
+     Warn(const char* file, int line, const char* format, ...) {
++#if !defined(__KELVIN__)
+   char buf[800];
+   va_list args;
+   va_start(args, format);
+@@ -77,10 +82,14 @@ HWY_DLLEXPORT void HWY_FORMAT(3, 4)
+   } else {
+     fprintf(stderr, "Warn at %s:%d: %s\n", GetBaseName(file).data(), line, buf);
+   }
++#endif
+ }
+ 
+ HWY_DLLEXPORT HWY_NORETURN void HWY_FORMAT(3, 4)
+     Abort(const char* file, int line, const char* format, ...) {
++#if defined(__KELVIN__)
++      abort();
++#else
+   char buf[800];
+   va_list args;
+   va_start(args, format);
+@@ -112,6 +121,7 @@ HWY_DLLEXPORT HWY_NORETURN void HWY_FORMAT(3, 4)
+ #else
+   abort();  // Compile error without this due to HWY_NORETURN.
+ #endif
++#endif
+ }
+ 
+ }  // namespace hwy
+diff --git a/hwy/aligned_allocator.cc b/hwy/aligned_allocator.cc
+index e857b228..42c250bd 100644
+--- a/hwy/aligned_allocator.cc
++++ b/hwy/aligned_allocator.cc
+@@ -55,6 +55,15 @@ struct AllocationHeader {
+ 
+ // Returns a 'random' (cyclical) offset for AllocateAlignedBytes.
+ size_t NextAlignedOffset() {
++#if defined(__KELVIN__)
++  static size_t next = 0;
++  static_assert(kAlias % kAlignment == 0, "kAlias must be a multiple");
++  constexpr size_t kGroups = kAlias / kAlignment;
++  const size_t group = (next + 1) % kGroups;
++  const size_t offset = kAlignment * group;
++  HWY_DASSERT((offset % kAlignment == 0) && offset <= kAlias);
++  return offset;
++#else
+   static std::atomic<size_t> next{0};
+   static_assert(kAlias % kAlignment == 0, "kAlias must be a multiple");
+   constexpr size_t kGroups = kAlias / kAlignment;
+@@ -62,6 +71,7 @@ size_t NextAlignedOffset() {
+   const size_t offset = kAlignment * group;
+   HWY_DASSERT((offset % kAlignment == 0) && offset <= kAlias);
+   return offset;
++#endif
+ }
+ 
+ }  // namespace
+diff --git a/hwy/contrib/thread_pool/thread_pool.h b/hwy/contrib/thread_pool/thread_pool.h
+index 5c083e2a..0bdaf9b2 100644
+--- a/hwy/contrib/thread_pool/thread_pool.h
++++ b/hwy/contrib/thread_pool/thread_pool.h
+@@ -20,6 +20,42 @@
+ #ifndef HIGHWAY_HWY_CONTRIB_THREAD_POOL_THREAD_POOL_H_
+ #define HIGHWAY_HWY_CONTRIB_THREAD_POOL_THREAD_POOL_H_
+ 
++#if defined(__KELVIN__)
++#include <cstdint>
++#include "hwy/base.h"
++
++namespace hwy {
++
++enum class PoolWaitMode : uint32_t { kBlock, kSpin };
++
++class ThreadPool {
++ public:
++  explicit ThreadPool(size_t /* num_threads */) {
++  }
++
++  ~ThreadPool() {
++  }
++  ThreadPool(const ThreadPool&) = delete;
++  ThreadPool& operator&(const ThreadPool&) = delete;
++
++  size_t NumWorkers() const { return 1; }
++
++  void SetWaitMode(PoolWaitMode mode) {}
++
++  template <class Closure>
++  void Run(uint64_t begin, uint64_t end, const Closure& closure) {
++    for (uint64_t task = begin; task < end; ++task) {
++      closure(task, 0);
++    }
++  }
++
++  static size_t MaxThreads() {
++    return 1;
++  }
++};
++
++}  // namespace hwy
++#else
+ // IWYU pragma: begin_exports
+ #include <stddef.h>
+ #include <stdint.h>
+@@ -689,5 +725,5 @@ class ThreadPool {
+ };
+ 
+ }  // namespace hwy
+-
++#endif // !defined(__KELVIN__)
+ #endif  // HIGHWAY_HWY_CONTRIB_THREAD_POOL_THREAD_POOL_H_
+-- 
+2.48.1.658.g4767266eb4-goog
+

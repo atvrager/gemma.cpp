@@ -1420,6 +1420,7 @@ void GenerateImageTokensT(const ModelWeightsStorage& model,
                           const RuntimeConfig& runtime_config,
                           const Image& image, ImageTokens& image_tokens,
                           NestedPools& pools) {
+
   if (model.Config().vit_layer_configs.empty()) {
     HWY_ABORT("Model does not support generating image tokens.");
   }

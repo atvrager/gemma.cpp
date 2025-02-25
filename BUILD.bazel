@@ -299,8 +299,12 @@ cc_library(
         "//compression:sfp",
         "@highway//:hwy",
         "@highway//:profiler",
-        "@com_google_sentencepiece//:sentencepiece_processor",
-    ],
+    ] + select({
+        "//platforms:kelvin_config": [],
+        "//conditions:default": [
+          "@com_google_sentencepiece//:sentencepiece_processor",
+        ],
+    })
 )
 
 cc_library(
@@ -473,21 +477,36 @@ cc_binary(
 
 cc_binary(
     name = "image_tokenizer",
-    srcs = ["gemma/image_tokenizer.cc"],
+    srcs = [
+        "gemma/activations.h",
+        "gemma/gemma.cc",
+        "gemma/instantiations/sfp.cc",
+        "gemma/image_tokenizer.cc",
+        "gemma/gemma.h",
+        "gemma/gemma-inl.h",
+    ] + select({
+        "//platforms:kelvin_config": [
+            "image_ppm.c",
+            "image_ppm.h",
+        ],
+        "//conditions:default": [
+          "gemma/instantiations/f32.cc",
+          "gemma/instantiations/bf16.cc",
+          "gemma/instantiations/nuq.cc",
+        ],
+    }),
     deps = [
-        ":app",
-        ":args",
-        ":benchmark_helper",
-        ":common",
-        ":gemma_lib",
-        ":threading",
-        # Placeholder for internal dep, do not remove.,
-        "//compression:sfp",
+        ":kv_cache",
+        ":tokenizer",
+        ":ops",
+        ":weights",
+        "//compression:compress",
         "//paligemma:image",
         "@highway//:hwy",
-        "@highway//:profiler",
-        "@highway//:thread_pool",
-    ],
+    ] + select({
+        "//platforms:kelvin_config": ["//crt:crt"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(
