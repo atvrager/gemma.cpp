@@ -1,0 +1,27 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
+    name = "kelvin_sim",
+    remote = "https://spacebeaker.googlesource.com/shodan/sim/kelvin",
+    commit = "84085c120cbb8100e6bf8ed165308764b5ca4fdd",
+    patch_args = ["-p1"],
+    patches = [
+        "//:0001-Modifications-to-run-with-giant-file-in-memory.patch",
+    ],
+)
+http_archive(
+    name = "com_google_mpact-riscv",
+    integrity = "sha256-1UtiuOMLKJK5f1mXiWGfb4Lc1n1kWmSQNNZb80XiLY4=",
+    strip_prefix = "mpact-riscv-3ed17ec6c5d9cf5fa35ea7100bfa9ae7799fa0d6",
+    url = "https://github.com/google/mpact-riscv/archive/3ed17ec6c5d9cf5fa35ea7100bfa9ae7799fa0d6.tar.gz",
+    patches = ["//:0001-Patch-isa-bin_fmt.patch"],
+    patch_args = ["-p1"]
+ )
+load("@com_google_mpact-riscv//:repos.bzl", "mpact_riscv_repos")
+mpact_riscv_repos()
+load("@com_google_mpact-sim//:repos.bzl", "mpact_sim_repos")
+mpact_sim_repos()
+load("@com_google_mpact-sim//:deps.bzl", "mpact_sim_deps")
+mpact_sim_deps()
+load("@com_google_mpact-sim//:protobuf_deps.bzl", "mpact_sim_protobuf_deps")
+mpact_sim_protobuf_deps()

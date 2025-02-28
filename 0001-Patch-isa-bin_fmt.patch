@@ -1,0 +1,63 @@
+From e7b0726bc2f4d61985f628fdc0779e27bb15d1f1 Mon Sep 17 00:00:00 2001
+From: Alex Van Damme <atv@google.com>
+Date: Thu, 27 Feb 2025 15:49:48 -0800
+Subject: [PATCH] Patch isa/bin_fmt
+
+---
+ 0001-Add-include-path-for-isa-bin_fmt.patch | 32 +++++++++++++++++++++
+ repos.bzl                                   |  2 ++
+ 2 files changed, 34 insertions(+)
+ create mode 100644 0001-Add-include-path-for-isa-bin_fmt.patch
+
+diff --git a/0001-Add-include-path-for-isa-bin_fmt.patch b/0001-Add-include-path-for-isa-bin_fmt.patch
+new file mode 100644
+index 0000000..c98a9f9
+--- /dev/null
++++ b/0001-Add-include-path-for-isa-bin_fmt.patch
+@@ -0,0 +1,32 @@
++From 1bff513e50b661e6f578372dea8fc7527dd8bd8b Mon Sep 17 00:00:00 2001
++From: Alex Van Damme <atv@google.com>
++Date: Thu, 27 Feb 2025 15:45:37 -0800
++Subject: [PATCH] Add include path for isa/bin_fmt
++
++---
++ mpact/sim/decoder/mpact_sim_isa.bzl | 2 ++
++ 1 file changed, 2 insertions(+)
++
++diff --git a/mpact/sim/decoder/mpact_sim_isa.bzl b/mpact/sim/decoder/mpact_sim_isa.bzl
++index d068a97..e4ba7cc 100644
++--- a/mpact/sim/decoder/mpact_sim_isa.bzl
+++++ b/mpact/sim/decoder/mpact_sim_isa.bzl
++@@ -110,6 +110,7 @@ def mpact_isa_decoder(name, includes, src = "", srcs = [], deps = [], isa_name =
++         name = name,
++         srcs = [f for f in out_files if f.endswith(".cc")],
++         hdrs = [f for f in out_files if f.endswith(".h")],
+++        copts = ["-iquote", "."],
++         deps = [
++             "@com_google_mpact-sim//mpact/sim/generic:arch_state",
++             "@com_google_mpact-sim//mpact/sim/generic:instruction",
++@@ -174,6 +175,7 @@ def mpact_bin_fmt_decoder(name, includes, src = "", srcs = [], deps = [], decode
++         name = name,
++         srcs = [f for f in out_files if f.endswith(".cc")],
++         hdrs = [f for f in out_files if f.endswith(".h")],
+++        copts = ["-iquote", "."],
++         deps = [
++             "@com_google_mpact-sim//mpact/sim/generic:arch_state",
++             "@com_google_mpact-sim//mpact/sim/generic:instruction",
++-- 
++2.48.1.711.g2feabab25a-goog
++
+diff --git a/repos.bzl b/repos.bzl
+index b7f7575..c475d85 100644
+--- a/repos.bzl
++++ b/repos.bzl
+@@ -25,4 +25,6 @@ def mpact_riscv_repos():
+             sha256 = "c1b76e8d8ea328a7db462d317192cc02e5659cdd8a9850c7fc53d72942255c80",
+             strip_prefix = "mpact-sim-1f895451f0050e6eda80fedb1d5ccd57b78b35cd",
+             url = "https://github.com/google/mpact-sim/archive/1f895451f0050e6eda80fedb1d5ccd57b78b35cd.tar.gz",
++            patches = ["@com_google_mpact-riscv//:0001-Add-include-path-for-isa-bin_fmt.patch"],
++            patch_args = ["-p1"],
+         )
+-- 
+2.48.1.711.g2feabab25a-goog
+

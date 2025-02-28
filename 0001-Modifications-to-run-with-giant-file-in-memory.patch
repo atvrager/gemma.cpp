@@ -1,0 +1,229 @@
+From 88fa4fcb0f95a57945f865916058b2171d2c283f Mon Sep 17 00:00:00 2001
+From: Alex Van Damme <atv@google.com>
+Date: Thu, 27 Feb 2025 13:31:12 -0800
+Subject: [PATCH] Modifications to run with giant file in memory
+
+Change-Id: I581d1bbcc8c99c2f4b7df1bb90debb141c9c5d79
+---
+ 0001-Patch-isa-bin_fmt.patch | 63 ++++++++++++++++++++++++++++++++++++
+ sim/kelvin.bin_fmt           | 14 ++++----
+ sim/kelvin.isa               | 10 +++---
+ sim/kelvin_sim.cc            | 33 +++++++++++++++++--
+ sim/kelvin_top.cc            |  2 +-
+ sim/proto/kelvin_trace.proto |  3 +-
+ 6 files changed, 108 insertions(+), 17 deletions(-)
+ create mode 100644 0001-Patch-isa-bin_fmt.patch
+
+diff --git a/0001-Patch-isa-bin_fmt.patch b/0001-Patch-isa-bin_fmt.patch
+new file mode 100644
+index 0000000..ec554f0
+--- /dev/null
++++ b/0001-Patch-isa-bin_fmt.patch
+@@ -0,0 +1,63 @@
++From 1b2b27b170c62c11da234b89fd21503011b75842 Mon Sep 17 00:00:00 2001
++From: Alex Van Damme <atv@google.com>
++Date: Thu, 27 Feb 2025 15:49:48 -0800
++Subject: [PATCH] Patch isa/bin_fmt
++
++---
++ 0001-Add-include-path-for-isa-bin_fmt.patch | 32 +++++++++++++++++++++
++ repos.bzl                                   |  2 ++
++ 2 files changed, 34 insertions(+)
++ create mode 100644 0001-Add-include-path-for-isa-bin_fmt.patch
++
++diff --git a/0001-Add-include-path-for-isa-bin_fmt.patch b/0001-Add-include-path-for-isa-bin_fmt.patch
++new file mode 100644
++index 0000000..c98a9f9
++--- /dev/null
+++++ b/0001-Add-include-path-for-isa-bin_fmt.patch
++@@ -0,0 +1,32 @@
+++From 1bff513e50b661e6f578372dea8fc7527dd8bd8b Mon Sep 17 00:00:00 2001
+++From: Alex Van Damme <atv@google.com>
+++Date: Thu, 27 Feb 2025 15:45:37 -0800
+++Subject: [PATCH] Add include path for isa/bin_fmt
+++
+++---
+++ mpact/sim/decoder/mpact_sim_isa.bzl | 2 ++
+++ 1 file changed, 2 insertions(+)
+++
+++diff --git a/mpact/sim/decoder/mpact_sim_isa.bzl b/mpact/sim/decoder/mpact_sim_isa.bzl
+++index d068a97..e4ba7cc 100644
+++--- a/mpact/sim/decoder/mpact_sim_isa.bzl
++++++ b/mpact/sim/decoder/mpact_sim_isa.bzl
+++@@ -110,6 +110,7 @@ def mpact_isa_decoder(name, includes, src = "", srcs = [], deps = [], isa_name =
+++         name = name,
+++         srcs = [f for f in out_files if f.endswith(".cc")],
+++         hdrs = [f for f in out_files if f.endswith(".h")],
++++        copts = ["-iquote", "."],
+++         deps = [
+++             "@com_google_mpact-sim//mpact/sim/generic:arch_state",
+++             "@com_google_mpact-sim//mpact/sim/generic:instruction",
+++@@ -174,6 +175,7 @@ def mpact_bin_fmt_decoder(name, includes, src = "", srcs = [], deps = [], decode
+++         name = name,
+++         srcs = [f for f in out_files if f.endswith(".cc")],
+++         hdrs = [f for f in out_files if f.endswith(".h")],
++++        copts = ["-iquote", "."],
+++         deps = [
+++             "@com_google_mpact-sim//mpact/sim/generic:arch_state",
+++             "@com_google_mpact-sim//mpact/sim/generic:instruction",
+++-- 
+++2.48.1.711.g2feabab25a-goog
+++
++diff --git a/repos.bzl b/repos.bzl
++index b7f7575..eaae374 100644
++--- a/repos.bzl
+++++ b/repos.bzl
++@@ -25,4 +25,6 @@ def mpact_riscv_repos():
++             sha256 = "c1b76e8d8ea328a7db462d317192cc02e5659cdd8a9850c7fc53d72942255c80",
++             strip_prefix = "mpact-sim-1f895451f0050e6eda80fedb1d5ccd57b78b35cd",
++             url = "https://github.com/google/mpact-sim/archive/1f895451f0050e6eda80fedb1d5ccd57b78b35cd.tar.gz",
+++            patches = ["0001-Add-include-path-for-isa-bin_fmt.patch"],
+++            patch_args = ["-p1"],
++         )
++-- 
++2.48.1.711.g2feabab25a-goog
++
+diff --git a/sim/kelvin.bin_fmt b/sim/kelvin.bin_fmt
+index e8f0cce..6577be9 100644
+--- a/sim/kelvin.bin_fmt
++++ b/sim/kelvin.bin_fmt
+@@ -15,11 +15,11 @@ decoder Kelvin {
+   RiscVZbbInst32Only;
+ };
+ 
+-#include "sim/kelvin_format.bin_fmt"
+-#include "sim/kelvin_arith.bin_fmt"
+-#include "sim/kelvin_base.bin_fmt"
+-#include "sim/kelvin_conv.bin_fmt"
+-#include "sim/kelvin_memory.bin_fmt"
+-#include "sim/kelvin_mul.bin_fmt"
+-#include "sim/kelvin_shift.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_format.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_arith.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_base.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_conv.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_memory.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_mul.bin_fmt"
++#include "external/kelvin_sim/sim/kelvin_shift.bin_fmt"
+ #include "external/com_google_mpact-riscv/riscv/riscv32zb.bin_fmt"
+diff --git a/sim/kelvin.isa b/sim/kelvin.isa
+index 0467dda..7f8b063 100644
+--- a/sim/kelvin.isa
++++ b/sim/kelvin.isa
+@@ -11,11 +11,11 @@ isa Kelvin {
+   slots { kelvin; }
+ }
+ 
+-#include "sim/kelvin_base.isa"
+-#include "sim/kelvin_arith.isa"
+-#include "sim/kelvin_shift.isa"
+-#include "sim/kelvin_memory.isa"
+-#include "sim/kelvin_mul.isa"
++#include "external/kelvin_sim/sim/kelvin_base.isa"
++#include "external/kelvin_sim/sim/kelvin_arith.isa"
++#include "external/kelvin_sim/sim/kelvin_shift.isa"
++#include "external/kelvin_sim/sim/kelvin_memory.isa"
++#include "external/kelvin_sim/sim/kelvin_mul.isa"
+ #include "external/com_google_mpact-riscv/riscv/riscv32zb.isa"
+ 
+ // Combining all kelvin instruction sets.
+diff --git a/sim/kelvin_sim.cc b/sim/kelvin_sim.cc
+index ca5717a..34a0bdf 100644
+--- a/sim/kelvin_sim.cc
++++ b/sim/kelvin_sim.cc
+@@ -23,12 +23,17 @@
+ #include <string>
+ #include <vector>
+ 
++#include <fcntl.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++
+ #include "sim/kelvin_state.h"
+ #include "sim/kelvin_top.h"
+ #include "absl/flags/flag.h"
+ #include "absl/flags/parse.h"
+ #include "absl/flags/usage.h"
+ #include "absl/log/initialize.h"
++#include "absl/log/check.h"
+ #include "absl/log/log.h"
+ #include "absl/strings/str_cat.h"
+ #include "absl/strings/str_format.h"
+@@ -142,11 +147,16 @@ int main(int argc, char **argv) {
+   auto out_args = absl::ParseCommandLine(argc, argv);
+   argc = out_args.size();
+   argv = &out_args[0];
+-  if (argc != 2) {
+-    LOG(ERROR) << "Only a single input file allowed";
++  if (argc < 2) {
++    LOG(ERROR) << "Need an input file!";
+     return -1;
+   }
+   std::string file_name = argv[1];
++  bool have_model_file = argc >= 3;
++  std::string model_file_name = "";
++  if (have_model_file) {
++    model_file_name = argv[2];
++  }
+ 
+   kelvin::sim::KelvinTop kelvin_top("Kelvin");
+ 
+@@ -204,6 +214,25 @@ int main(int argc, char **argv) {
+     }
+   }
+ 
++  if (have_model_file) {
++    std::cout << "Loading " << model_file_name << " to 0x80000000" << std::endl;
++    int fd = open(model_file_name.c_str(), 0);
++    CHECK_GT(fd, 0);
++    struct stat sb;
++    CHECK_EQ(fstat(fd, &sb), 0);
++    uint8_t* data = reinterpret_cast<uint8_t*>(mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
++    CHECK_NE(data, nullptr);
++    close(fd);
++
++    mpact::sim::generic::DataBufferFactory db_factory;
++    auto *db = db_factory.Allocate(sb.st_size);
++    memcpy(db->raw_ptr(), data, sb.st_size);
++    kelvin_top.memory()->Store(0x80000000, db);
++    db->DecRef();
++
++    munmap(data, sb.st_size);
++  }
++
+   // Initialize the PC to the entry point.
+   auto pc_write = kelvin_top.WriteRegister("pc", entry_point);
+   if (!pc_write.ok()) {
+diff --git a/sim/kelvin_top.cc b/sim/kelvin_top.cc
+index 6cf7eba..35d120d 100644
+--- a/sim/kelvin_top.cc
++++ b/sim/kelvin_top.cc
+@@ -136,7 +136,7 @@ void KelvinTop::Initialize() {
+   // Create the simulation state
+   state_ = new sim::KelvinState(kKelvinName, mpact::sim::riscv::RiscVXlen::RV32,
+                                 memory_);
+-  state_->set_max_physical_address(kKelvinMaxMemoryAddress);
++  state_->set_max_physical_address(0xFFFFFFFF);
+   fp_state_ = new mpact::sim::riscv::RiscVFPState(state_->csr_set(), state_);
+   state_->set_rv_fp(fp_state_);
+   pc_ = state_->registers()->at(sim::KelvinState::kPcName);
+diff --git a/sim/proto/kelvin_trace.proto b/sim/proto/kelvin_trace.proto
+index 02e0c88..f864029 100644
+--- a/sim/proto/kelvin_trace.proto
++++ b/sim/proto/kelvin_trace.proto
+@@ -12,11 +12,10 @@
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
+ 
+-edition = "2023";
++syntax = "proto3";
+ 
+ package kelvin.sim.proto;
+ 
+-option features.utf8_validation = NONE;
+ option java_multiple_files = true;
+ 
+ message TraceEntry {
+-- 
+2.48.1.711.g2feabab25a-goog
+
